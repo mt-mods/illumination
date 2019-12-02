@@ -4,15 +4,13 @@ illumination.playerLights = {}
 local lightPoint = {
 	drawtype = "airlike",
 	paramtype = "light",
-	groups = {not_in_creative_inventory=1},
+	groups = {not_in_creative_inventory=1, not_blocking_trains=1},
 	sunlight_propagates = true,
-	can_dig = false,
 	walkable = false,
+	pointable = false,
+	diggable = false,
 	buildable_to = true,
 	light_source = 4,
-	selection_box = {
-        type = "fixed",
-        fixed = {0, 0, 0, 0, 0, 0}},
 }
 
 minetest.register_node("illumination:light_faint", lightPoint)
@@ -20,7 +18,7 @@ lightPoint.light_source = 8
 minetest.register_node("illumination:light_dim", lightPoint)
 lightPoint.light_source = 12
 minetest.register_node("illumination:light_mid", lightPoint)
-lightPoint.light_source = 15
+lightPoint.light_source = minetest.LIGHT_MAX
 minetest.register_node("illumination:light_full", lightPoint)
 
 minetest.register_abm({ --This should clean up nodes that don't get deleted for some reason
