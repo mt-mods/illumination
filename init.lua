@@ -1,6 +1,22 @@
 illumination = {}
 illumination.player_lights = {}
 
+illumination.illumination_items = {} -- Non-node items to also illuminate
+if minetest.get_modpath("mobs_monster") then
+	illumination.illumination_items["mobs:lava_orb"] = 4
+	illumination.illumination_items["mobs:pick_lava"] = 8
+end
+if minetest.get_modpath("lavastuff") then
+	illumination.illumination_items["lavastuff:orb"] = 4
+	illumination.illumination_items["lavastuff:sword"] = 8
+	illumination.illumination_items["lavastuff:pick"] = 8
+	illumination.illumination_items["lavastuff:axe"] = 8
+	illumination.illumination_items["lavastuff:shovel"] = 8
+end
+if minetest.get_modpath("multitools") then
+	illumination.illumination_items["multitools:multitool_lava"] = 14
+end
+
 local light_def = {
 	drawtype = "airlike",
 	paramtype = "light",
@@ -108,6 +124,8 @@ minetest.register_globalstep(function(dtime)
 			local light = 0
 			if minetest.registered_nodes[wielded_name] then
 				light = minetest.registered_nodes[wielded_name].light_source
+			elseif illumination.illumination_items[wielded_name] then
+				light = illumination.illumination_items[wielded_name]
 			end
 
 			if light <= 2 then
