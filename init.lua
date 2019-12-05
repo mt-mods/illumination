@@ -119,6 +119,7 @@ minetest.register_globalstep(function(dtime)
 
 			local pos = round_pos(player:get_pos())
 			local old_pos = illumination.player_lights[player_name].pos
+			local old_player_pos = illumination.player_lights[player_name].player_pos
 			local wielded_name = player:get_wielded_item():get_name()
 
 			local light = 0
@@ -145,9 +146,9 @@ minetest.register_globalstep(function(dtime)
 				light_name = "illumination:light_full"
 			end
 
-			if old_pos then
+			if old_pos and old_player_pos then
 				if light_name == minetest.get_node(old_pos).name
-					and vector.equals(pos, old_pos) then
+					and vector.equals(pos, old_player_pos) then
 					return -- has illumination
 				end
 			end
