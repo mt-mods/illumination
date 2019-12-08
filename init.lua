@@ -110,86 +110,88 @@ minetest.register_on_leaveplayer(function(player)
 	illumination.player_lights = remaining_players
 end)
 
-minetest.register_globalstep(function(dtime)
-	for _, player in ipairs(minetest.get_connected_players()) do
+local function update_illumination(player)
+	local player_name = player:get_player_name()
 
-		local player_name = player:get_player_name()
+	if illumination.player_lights[player_name] then
+		local pos = round_pos(player:get_pos())
+		local old_pos = illumination.player_lights[player_name].pos
+		local old_player_pos = illumination.player_lights[player_name].player_pos
+		local wielded_name = player:get_wielded_item():get_name()
 
-		if illumination.player_lights[player_name] then
+		local light = 0
+		if minetest.registered_nodes[wielded_name] then
+			light = minetest.registered_nodes[wielded_name].light_source
+		elseif illumination.illumination_items[wielded_name] then
+			light = illumination.illumination_items[wielded_name]
+		end
 
-			local pos = round_pos(player:get_pos())
-			local old_pos = illumination.player_lights[player_name].pos
-			local old_player_pos = illumination.player_lights[player_name].player_pos
-			local wielded_name = player:get_wielded_item():get_name()
+		if light <= 2 then
+			remove_illumination(old_pos)
+			illumination.player_lights[player_name].pos = nil
+			return -- no illumination
+		end
 
-			local light = 0
-			if minetest.registered_nodes[wielded_name] then
-				light = minetest.registered_nodes[wielded_name].light_source
-			elseif illumination.illumination_items[wielded_name] then
-				light = illumination.illumination_items[wielded_name]
-			end
+		local light_name = "illumination:light_faint"
+		if light > 7 then
+			light_name = "illumination:light_dim"
+		end
+		if light > 10 then
+			light_name = "illumination:light_mid"
+		end
+		if light > 13 then
+			light_name = "illumination:light_full"
+		end
 
-			if light <= 2 then
-				remove_illumination(old_pos)
-				illumination.player_lights[player_name].pos = nil
-				return -- no illumination
-			end
-
-			local light_name = "illumination:light_faint"
-			if light > 7 then
-				light_name = "illumination:light_dim"
-			end
-			if light > 10 then
-				light_name = "illumination:light_mid"
-			end
-			if light > 13 then
-				light_name = "illumination:light_full"
-			end
-
-			if old_pos and old_player_pos then
-				if light_name == minetest.get_node(old_pos).name
-					and vector.equals(pos, old_player_pos) then
-					return -- has illumination
-				end
-			end
-			illumination.player_lights[player_name].player_pos = pos
-
-			if not can_light(pos) then
-				if can_light({x=pos.x, y=pos.y+1, z=pos.z}) then
-					pos = {x=pos.x, y=pos.y+1, z=pos.z}
-				elseif can_light({x=pos.x, y=pos.y+2, z=pos.z}) then
-					pos = {x=pos.x, y=pos.y+2, z=pos.z}
-				elseif can_light({x=pos.x, y=pos.y-1, z=pos.z}) then
-					pos = {x=pos.x, y=pos.y-1, z=pos.z}
-				elseif can_light({x=pos.x+1, y=pos.y, z=pos.z}) then
-					pos = {x=pos.x+1, y=pos.y, z=pos.z}
-				elseif can_light({x=pos.x, y=pos.y, z=pos.z+1}) then
-					pos = {x=pos.x, y=pos.y, z=pos.z+1}
-				elseif can_light({x=pos.x-1, y=pos.y, z=pos.z}) then
-					pos = {x=pos.x-1, y=pos.y, z=pos.z}
-				elseif can_light({x=pos.x, y=pos.y, z=pos.z-1}) then
-					pos = {x=pos.x, y=pos.y, z=pos.z-1}
-				elseif can_light({x=pos.x+1, y=pos.y+1, z=pos.z}) then
-					pos = {x=pos.x+1, y=pos.y+1, z=pos.z}
-				elseif can_light({x=pos.x-1, y=pos.y+1, z=pos.z}) then
-					pos = {x=pos.x-1, y=pos.y+1, z=pos.z}
-				elseif can_light({x=pos.x, y=pos.y+1, z=pos.z+1}) then
-					pos = {x=pos.x, y=pos.y+1, z=pos.z+1}
-				elseif can_light({x=pos.x, y=pos.y+1, z=pos.z-1}) then
-					pos = {x=pos.x, y=pos.y+1, z=pos.z-1}
-				end
-			end
-
-			if can_light(pos) then -- add illumination
-				illumination.player_lights[player_name].pos = pos
-				minetest.set_node(pos, {name = light_name})
-			end
-
-			if old_pos then
-				if not vector.equals(pos, old_pos) then -- remove old illumination
-					remove_illumination(old_pos)
-				end
+		if old_pos and old_player_pos then
+			if light_name == minetest.get_node(old_pos).name
+				and vector.equals(pos, old_player_pos) then
+				return -- has illumination
 			end
 		end
+		illumination.player_lights[player_name].player_pos = pos
+
+		if not can_light(pos) then
+			if can_light({x=pos.x, y=pos.y+1, z=pos.z}) then
+				pos = {x=pos.x, y=pos.y+1, z=pos.z}
+			elseif can_light({x=pos.x, y=pos.y+2, z=pos.z}) then
+				pos = {x=pos.x, y=pos.y+2, z=pos.z}
+			elseif can_light({x=pos.x, y=pos.y-1, z=pos.z}) then
+				pos = {x=pos.x, y=pos.y-1, z=pos.z}
+			elseif can_light({x=pos.x+1, y=pos.y, z=pos.z}) then
+				pos = {x=pos.x+1, y=pos.y, z=pos.z}
+			elseif can_light({x=pos.x, y=pos.y, z=pos.z+1}) then
+				pos = {x=pos.x, y=pos.y, z=pos.z+1}
+			elseif can_light({x=pos.x-1, y=pos.y, z=pos.z}) then
+				pos = {x=pos.x-1, y=pos.y, z=pos.z}
+			elseif can_light({x=pos.x, y=pos.y, z=pos.z-1}) then
+				pos = {x=pos.x, y=pos.y, z=pos.z-1}
+			elseif can_light({x=pos.x+1, y=pos.y+1, z=pos.z}) then
+				pos = {x=pos.x+1, y=pos.y+1, z=pos.z}
+			elseif can_light({x=pos.x-1, y=pos.y+1, z=pos.z}) then
+				pos = {x=pos.x-1, y=pos.y+1, z=pos.z}
+			elseif can_light({x=pos.x, y=pos.y+1, z=pos.z+1}) then
+				pos = {x=pos.x, y=pos.y+1, z=pos.z+1}
+			elseif can_light({x=pos.x, y=pos.y+1, z=pos.z-1}) then
+				pos = {x=pos.x, y=pos.y+1, z=pos.z-1}
+			end
+		end
+
+		if can_light(pos) then -- add illumination
+			illumination.player_lights[player_name].pos = pos
+			minetest.set_node(pos, {name = light_name})
+		end
+
+		if old_pos then
+			if not vector.equals(pos, old_pos) then -- remove old illumination
+				remove_illumination(old_pos)
+			end
+		end
+	end
+end
+
+minetest.register_globalstep(function(dtime)
+	for _, player in ipairs(minetest.get_connected_players()) do
+		update_illumination(player)
 	end
 end)
