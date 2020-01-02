@@ -98,9 +98,9 @@ end)
 
 minetest.register_on_leaveplayer(function(player)
 	local player_name = player:get_player_name()
-
-	remove_illumination(illumination.player_lights[player_name].pos)
-
+	if illumination.player_lights[player_name] then
+		remove_illumination(illumination.player_lights[player_name].pos)
+	end
 	local remaining_players = {}
 	for _, online in ipairs(minetest.get_connected_players()) do
 		if online:get_player_name() ~= player_name then
