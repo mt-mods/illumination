@@ -1,197 +1,155 @@
-illumination = {}
-illumination.player_lights = {}
 
-illumination.illumination_items = {} -- Non-node items to also illuminate
-if minetest.get_modpath("mobs_monster") then
-	illumination.illumination_items["mobs:lava_orb"] = 4
-	illumination.illumination_items["mobs:pick_lava"] = 8
-end
-if minetest.get_modpath("lavastuff") then
-	illumination.illumination_items["lavastuff:orb"] = 4
-	illumination.illumination_items["lavastuff:sword"] = 8
-	illumination.illumination_items["lavastuff:pick"] = 8
-	illumination.illumination_items["lavastuff:axe"] = 8
-	illumination.illumination_items["lavastuff:shovel"] = 8
-end
-if minetest.get_modpath("multitools") then
-	illumination.illumination_items["multitools:multitool_lava"] = 14
+local player_lights = {}
+
+local function can_replace(pos)
+	local nn = minetest.get_node(pos).name
+	return nn == "air" or minetest.get_item_group(nn, "illumination_light") > 0
 end
 
-local light_def = {
-	drawtype = "airlike",
-	paramtype = "light",
-	groups = {not_in_creative_inventory = 1, not_blocking_trains = 1},
-	sunlight_propagates = true,
-	walkable = false,
-	pointable = false,
-	diggable = false,
-	buildable_to = true,
-	light_source = 4,
-}
-
-minetest.register_node("illumination:light_faint", light_def)
-light_def.light_source = 8
-minetest.register_node("illumination:light_dim", light_def)
-light_def.light_source = 12
-minetest.register_node("illumination:light_mid", light_def)
-light_def.light_source = minetest.LIGHT_MAX
-minetest.register_node("illumination:light_full", light_def)
-
-local function round_pos(pos)
-	local newpos = {}
-	newpos.x = math.floor(pos.x + 0.5)
-	newpos.y = math.floor(pos.y + 0.5)
-	newpos.z = math.floor(pos.z + 0.5)
-	return newpos
-end
-
-local function can_light(pos)
-	local node_name = minetest.get_node(pos).name
-	return (node_name == "air"
-		or node_name == "illumination:light_faint"
-		or node_name == "illumination:light_dim"
-		or node_name == "illumination:light_mid"
-		or node_name == "illumination:light_full")
-end
-
-local function remove_illumination(pos)
-	if pos then
-		if can_light(pos) then
-			minetest.set_node(pos, {name = "air"})
-		end
+local function remove_light(pos)
+	if pos and can_replace(pos) then
+		minetest.set_node(pos, {name = "air"})
 	end
 end
 
-minetest.register_abm({ --This should clean up nodes that don't get deleted for some reason
-	nodenames = {
-		"illumination:light_faint",
-		"illumination:light_dim",
-		"illumination:light_mid",
-		"illumination:light_full"
-	},
-	interval = 2,
-	chance = 10,
-	action = function(pos)
-		local can_exist = false
-		for _, player in ipairs(minetest.get_connected_players()) do
-			if illumination.player_lights[player:get_player_name()] then
-				local light_pos = illumination.player_lights[player:get_player_name()].pos
-				if light_pos then
-					if vector.equals(pos, light_pos) then
-						can_exist = true
-					end
-				end
-			end
-		end
-		if not can_exist then
-			remove_illumination(pos)
-		end
+local function get_light_node(player)
+	local light = 0
+	-- Light from wielded item/tool/node
+	local item = player:get_wielded_item():get_name()
+	local def = minetest.registered_items[item]
+	if def and def.light_source then
+		light = def.light_source
 	end
-})
+	-- Light from armor or other worn items
+	local name = player:get_player_name()
+	local armor_light = player_lights[name].armor_light
+	if armor_light and armor_light > light then
+		light = armor_light
+	end
+	if light >= 14 then
+		return "illumination:light_14"
+	elseif light < 1 then
+		return nil
+	end
+	return "illumination:light_"..light
+end
 
-minetest.register_on_joinplayer(function(player)
-	illumination.player_lights[player:get_player_name()] = {
-		pos = round_pos(player:get_pos()),
-		player_pos = round_pos(player:get_pos())
-	}
-end)
-
-minetest.register_on_leaveplayer(function(player)
-	local player_name = player:get_player_name()
-	if illumination.player_lights[player_name] then
-		remove_illumination(illumination.player_lights[player_name].pos)
+local function find_light_pos(pos)
+	-- Check feet and head positions first
+	if can_replace(pos) then
+		return pos
 	end
-	local remaining_players = {}
-	for _, online in ipairs(minetest.get_connected_players()) do
-		if online:get_player_name() ~= player_name then
-			remaining_players[online:get_player_name()] = illumination.player_lights[online:get_player_name()]
-		end
+	pos.y = pos.y + 1
+	if can_replace(pos) then
+		return pos
 	end
-	illumination.player_lights = remaining_players
-end)
+	-- Otherwise look around player's head
+	return minetest.find_node_near(pos, 1, {"air", "group:illumination_light"})
+end
 
 local function update_illumination(player)
-	local player_name = player:get_player_name()
-
-	if illumination.player_lights[player_name] then
-		local pos = round_pos(player:get_pos())
-		local old_pos = illumination.player_lights[player_name].pos
-		local old_player_pos = illumination.player_lights[player_name].player_pos
-		local wielded_name = player:get_wielded_item():get_name()
-
-		local light = 0
-		if minetest.registered_nodes[wielded_name] then
-			light = minetest.registered_nodes[wielded_name].light_source
-		elseif illumination.illumination_items[wielded_name] then
-			light = illumination.illumination_items[wielded_name]
-		end
-
-		if light <= 2 then
-			remove_illumination(old_pos)
-			illumination.player_lights[player_name].pos = nil
-			return -- no illumination
-		end
-
-		local light_name = "illumination:light_faint"
-		if light > 7 then
-			light_name = "illumination:light_dim"
-		end
-		if light > 10 then
-			light_name = "illumination:light_mid"
-		end
-		if light > 13 then
-			light_name = "illumination:light_full"
-		end
-
-		if old_pos and old_player_pos then
-			if light_name == minetest.get_node(old_pos).name
-				and vector.equals(pos, old_player_pos) then
-				return -- has illumination
-			end
-		end
-		illumination.player_lights[player_name].player_pos = pos
-
-		if not can_light(pos) then
-			if can_light({x=pos.x, y=pos.y+1, z=pos.z}) then
-				pos = {x=pos.x, y=pos.y+1, z=pos.z}
-			elseif can_light({x=pos.x, y=pos.y+2, z=pos.z}) then
-				pos = {x=pos.x, y=pos.y+2, z=pos.z}
-			elseif can_light({x=pos.x, y=pos.y-1, z=pos.z}) then
-				pos = {x=pos.x, y=pos.y-1, z=pos.z}
-			elseif can_light({x=pos.x+1, y=pos.y, z=pos.z}) then
-				pos = {x=pos.x+1, y=pos.y, z=pos.z}
-			elseif can_light({x=pos.x, y=pos.y, z=pos.z+1}) then
-				pos = {x=pos.x, y=pos.y, z=pos.z+1}
-			elseif can_light({x=pos.x-1, y=pos.y, z=pos.z}) then
-				pos = {x=pos.x-1, y=pos.y, z=pos.z}
-			elseif can_light({x=pos.x, y=pos.y, z=pos.z-1}) then
-				pos = {x=pos.x, y=pos.y, z=pos.z-1}
-			elseif can_light({x=pos.x+1, y=pos.y+1, z=pos.z}) then
-				pos = {x=pos.x+1, y=pos.y+1, z=pos.z}
-			elseif can_light({x=pos.x-1, y=pos.y+1, z=pos.z}) then
-				pos = {x=pos.x-1, y=pos.y+1, z=pos.z}
-			elseif can_light({x=pos.x, y=pos.y+1, z=pos.z+1}) then
-				pos = {x=pos.x, y=pos.y+1, z=pos.z+1}
-			elseif can_light({x=pos.x, y=pos.y+1, z=pos.z-1}) then
-				pos = {x=pos.x, y=pos.y+1, z=pos.z-1}
-			end
-		end
-
-		if can_light(pos) then -- add illumination
-			illumination.player_lights[player_name].pos = pos
-			minetest.set_node(pos, {name = light_name})
-		end
-
-		if old_pos then
-			if not vector.equals(pos, old_pos) then -- remove old illumination
-				remove_illumination(old_pos)
-			end
+	local name = player:get_player_name()
+	if not player_lights[name] then
+		return  -- Player has just joined/left
+	end
+	local pos = vector.round(player:get_pos())
+	local old_pos = player_lights[name].pos
+	local player_pos = player_lights[name].player_pos
+	local node = get_light_node(player)
+	-- Check if illumination needs updating
+	if old_pos and player_pos then
+		if node == minetest.get_node(old_pos).name and vector.equals(pos, player_pos) then
+			return  -- Already has illumination
 		end
 	end
+	-- Update illumination
+	player_lights[name].player_pos = pos
+	if node then
+		local new_pos = find_light_pos(pos)
+		if new_pos then
+			minetest.set_node(new_pos, {name = node})
+			if old_pos and not vector.equals(old_pos, new_pos) then
+				remove_light(old_pos)
+			end
+			player_lights[name].pos = new_pos
+			return
+		end
+	end
+	-- No illumination
+	remove_light(old_pos)
+	player_lights[name].pos = nil
 end
 
-minetest.register_globalstep(function(dtime)
-	for _, player in ipairs(minetest.get_connected_players()) do
+minetest.register_globalstep(function()
+	for _, player in pairs(minetest.get_connected_players()) do
 		update_illumination(player)
 	end
 end)
+
+minetest.register_on_joinplayer(function(player)
+	local name = player:get_player_name()
+	player_lights[name] = {}
+end)
+
+minetest.register_on_leaveplayer(function(player)
+	local name = player:get_player_name()
+	if player_lights[name] then
+		remove_light(player_lights[name].pos)
+	end
+	player_lights[name] = nil
+end)
+
+-- Support for luminescent armor
+if minetest.get_modpath("3d_armor") then
+	armor:register_on_update(function(player)
+		local name, inv = armor:get_valid_player(player)
+		if name then
+			local light = 0
+			for i=1, inv:get_size("armor") do
+				local item = inv:get_stack("armor", i):get_name()
+				local def = minetest.registered_items[item]
+				if def and def.light_source and def.light_source > light then
+					light = def.light_source
+				end
+			end
+			player_lights[name].armor_light = light
+		end
+	end)
+end
+
+-- Light node for every light level
+for n = 1, 14 do
+	minetest.register_node("illumination:light_"..n, {
+		drawtype = "airlike",
+		paramtype = "light",
+		light_source = n,
+		sunlight_propagates = true,
+		walkable = false,
+		pointable = false,
+		buildable_to = true,
+		air_equivalent = true,
+		groups = {
+			not_in_creative_inventory = 1,
+			not_blocking_trains = 1,
+			illumination_light = 1,
+		},
+		drop = "",
+	})
+end
+
+-- Cleanup for leftover and player-placed illumination lights
+minetest.register_lbm({
+	label = "Illumination light cleanup",
+	name = "illumination:light_cleanup",
+	nodenames = {"group:illumination_light"},
+	run_at_every_load = true,
+	action = function(pos)
+		minetest.set_node(pos, {name = "air"})
+	end,
+})
+
+-- Aliases for old illumination lights
+minetest.register_alias("illumination:light_faint", "illumination:light_4")
+minetest.register_alias("illumination:light_dim", "illumination:light_8")
+minetest.register_alias("illumination:light_mid", "illumination:light_12")
+minetest.register_alias("illumination:light_full", "illumination:light_14")
