@@ -112,7 +112,10 @@ if minetest.get_modpath("3d_armor") then
 					light = def.light_source
 				end
 			end
-			player_lights[name].armor_light = light
+			-- re-check if the player_lights exist before using it
+			if player_lights[name] then
+				player_lights[name].armor_light = light
+			end
 		end
 	end)
 end
