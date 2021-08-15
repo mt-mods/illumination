@@ -88,7 +88,9 @@ end)
 
 minetest.register_on_joinplayer(function(player)
 	local name = player:get_player_name()
-	player_lights[name] = {}
+	if not player_lights[name] then
+		player_lights[name] = {}
+	end
 end)
 
 minetest.register_on_leaveplayer(function(player)
@@ -112,9 +114,11 @@ if minetest.get_modpath("3d_armor") then
 					light = def.light_source
 				end
 			end
-			-- re-check if the player_lights exist before using it
 			if player_lights[name] then
 				player_lights[name].armor_light = light
+			else
+				-- Armor updated before illumination
+				player_lights[name] = {armor_light = light}
 			end
 		end
 	end)
