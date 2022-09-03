@@ -52,7 +52,7 @@ local function update_illumination(player, dtime)
 	if not player_lights[name] then
 		return  -- Player has just joined/left
 	end
-	local pos = vector.round(vector.add(player:get_pos(), vector.multiply(player:get_velocity(), dtime*2))
+	local pos = vector.round(vector.add(player:get_pos(), vector.multiply(player:get_velocity(), dtime*2)))
 	local old_pos = player_lights[name].pos
 	local player_pos = player_lights[name].player_pos
 	local node = get_light_node(player)
