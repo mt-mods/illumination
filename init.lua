@@ -47,12 +47,12 @@ local function find_light_pos(pos)
 	return minetest.find_node_near(pos, 1, {"air", "group:illumination_light"})
 end
 
-local function update_illumination(player)
+local function update_illumination(player, dtime)
 	local name = player:get_player_name()
 	if not player_lights[name] then
 		return  -- Player has just joined/left
 	end
-	local pos = vector.round(player:get_pos())
+	local pos = vector.round(vector.add(player:get_pos(), vector.multiply(player:get_velocity(), dtime*2)))
 	local old_pos = player_lights[name].pos
 	local player_pos = player_lights[name].player_pos
 	local node = get_light_node(player)
@@ -80,9 +80,9 @@ local function update_illumination(player)
 	player_lights[name].pos = nil
 end
 
-minetest.register_globalstep(function()
+minetest.register_globalstep(function(dtime)
 	for _, player in pairs(minetest.get_connected_players()) do
-		update_illumination(player)
+		update_illumination(player, dtime)
 	end
 end)
 
