@@ -134,7 +134,6 @@ for n = 1, 14 do
 		walkable = false,
 		pointable = false,
 		buildable_to = true,
-		air_equivalent = true,
 		groups = {
 			not_in_creative_inventory = 1,
 			not_blocking_trains = 1,
