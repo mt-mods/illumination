@@ -1,4 +1,7 @@
 
+local ilumination_remove_light_dtime = minetest.settings:get("ilumination_remove_light_dtime")
+ilumination_remove_light_dtime = ilumination_remove_light_dtime and tonumber(ilumination_remove_light_dtime) or 0.3
+
 local player_lights = {}
 
 local function can_replace(pos)
@@ -6,9 +9,23 @@ local function can_replace(pos)
 	return nn == "air" or minetest.get_item_group(nn, "illumination_light") > 0
 end
 
+local function fix_light(pos)
+	local pmin = vector.subtract(pos, { x = 16, y = 16, z = 16 })
+	local pmax = vector.add(pos, { x = 16, y = 16, z = 16 })
+
+	return minetest.fix_light(pmin, pmax)
+end
+
 local function remove_light(pos)
-	if pos and can_replace(pos) then
-		minetest.set_node(pos, {name = "air"})
+	local nn = minetest.get_node(pos).name
+	if minetest.get_item_group(nn, "illumination_light") > 0 then
+		if ilumination_remove_light_dtime <= 0 then
+			minetest.set_node(pos, {name = "air"})
+			fix_light(pos)
+			return
+		end
+
+		minetest.get_node_timer(pos):start(ilumination_remove_light_dtime)
 	end
 end
 
@@ -68,6 +85,7 @@ local function update_illumination(player, dtime)
 		local new_pos = find_light_pos(pos)
 		if new_pos then
 			minetest.set_node(new_pos, {name = node})
+			minetest.get_node_timer(new_pos):stop()
 			if old_pos and not vector.equals(old_pos, new_pos) then
 				remove_light(old_pos)
 			end
@@ -76,7 +94,9 @@ local function update_illumination(player, dtime)
 		end
 	end
 	-- No illumination
-	remove_light(old_pos)
+	if old_pos then
+		remove_light(old_pos)
+	end
 	player_lights[name].pos = nil
 end
 
@@ -95,7 +115,7 @@ end)
 
 minetest.register_on_leaveplayer(function(player)
 	local name = player:get_player_name()
-	if player_lights[name] then
+	if player_lights[name] and player_lights[name].pos then
 		remove_light(player_lights[name].pos)
 	end
 	player_lights[name] = nil
@@ -124,6 +144,11 @@ if minetest.get_modpath("3d_armor") then
 	end)
 end
 
+local light_on_timer = function(pos)
+	minetest.set_node(pos, { name = "air" })
+	fix_light(pos)
+end
+
 -- Light node for every light level
 for n = 1, 14 do
 	minetest.register_node("illumination:light_"..n, {
@@ -140,6 +165,7 @@ for n = 1, 14 do
 			illumination_light = 1,
 		},
 		drop = "",
+		on_timer = light_on_timer,
 	})
 end
 
@@ -151,6 +177,7 @@ minetest.register_lbm({
 	run_at_every_load = true,
 	action = function(pos)
 		minetest.set_node(pos, {name = "air"})
+		fix_light(pos)
 	end,
 })
 
