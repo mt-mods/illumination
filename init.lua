@@ -1,4 +1,6 @@
 
+local illumination_remove_light_time = tonumber(minetest.settings:get("illumination_remove_light_time")) or 0.3
+
 local player_lights = {}
 
 local function can_replace(pos)
@@ -7,8 +9,12 @@ local function can_replace(pos)
 end
 
 local function remove_light(pos)
-	if pos and can_replace(pos) then
-		minetest.set_node(pos, {name = "air"})
+	if pos and minetest.get_item_group(minetest.get_node(pos).name, "illumination_light") > 0 then
+		if illumination_remove_light_time <= 0 then
+			minetest.set_node(pos, {name = "air"})
+			return
+		end
+		minetest.get_node_timer(pos):start(illumination_remove_light_time)
 	end
 end
 
@@ -68,6 +74,7 @@ local function update_illumination(player, dtime)
 		local new_pos = find_light_pos(pos)
 		if new_pos then
 			minetest.set_node(new_pos, {name = node})
+			minetest.get_node_timer(new_pos):stop()
 			if old_pos and not vector.equals(old_pos, new_pos) then
 				remove_light(old_pos)
 			end
@@ -124,6 +131,10 @@ if minetest.get_modpath("3d_armor") then
 	end)
 end
 
+local function light_on_timer (pos)
+	minetest.set_node(pos, {name = "air"})
+end
+
 -- Light node for every light level
 for n = 1, 14 do
 	minetest.register_node("illumination:light_"..n, {
@@ -140,6 +151,7 @@ for n = 1, 14 do
 			illumination_light = 1,
 		},
 		drop = "",
+		on_timer = light_on_timer,
 	})
 end
 
