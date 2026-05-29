@@ -1,5 +1,4 @@
-# The time waited before removing outdated illumination nodes
-# Set this to a larger value to leave behind a light trail. Set to 0 to 
-# guarentee clean removal but risks flickering. The default value balances 
-# between realism and visual smoothness.
-ilumination_remove_light_dtime (Time waited before removing illumination nodes) float 0.3 0.0 60.0
+# Set this to a larger value to leave behind a light trail.
+# Set to 0 to guarantee clean removal but risk flickering.
+# The default value balances between realism and visual smoothness.
+illumination_remove_light_time (Light lifetime) float 0.3 0.0 60.0
