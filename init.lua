@@ -1,20 +1,20 @@
 
-local illumination_remove_light_time = tonumber(minetest.settings:get("illumination_remove_light_time")) or 0.3
+local illumination_remove_light_time = tonumber(core.settings:get("illumination_remove_light_time")) or 0.3
 
 local player_lights = {}
 
 local function can_replace(pos)
-	local nn = minetest.get_node(pos).name
-	return nn == "air" or minetest.get_item_group(nn, "illumination_light") > 0
+	local nn = core.get_node(pos).name
+	return nn == "air" or core.get_item_group(nn, "illumination_light") > 0
 end
 
 local function remove_light(pos)
-	if pos and minetest.get_item_group(minetest.get_node(pos).name, "illumination_light") > 0 then
+	if pos and core.get_item_group(core.get_node(pos).name, "illumination_light") > 0 then
 		if illumination_remove_light_time <= 0 then
-			minetest.set_node(pos, {name = "air"})
+			core.set_node(pos, {name = "air"})
 			return
 		end
-		minetest.get_node_timer(pos):start(illumination_remove_light_time)
+		core.get_node_timer(pos):start(illumination_remove_light_time)
 	end
 end
 
@@ -22,7 +22,7 @@ local function get_light_node(player)
 	local light = 0
 	-- Light from wielded item/tool/node
 	local item = player:get_wielded_item():get_name()
-	local def = minetest.registered_items[item]
+	local def = core.registered_items[item]
 	if def and def.light_source then
 		light = def.light_source
 	end
@@ -50,7 +50,7 @@ local function find_light_pos(pos)
 		return pos
 	end
 	-- Otherwise look around player's head
-	return minetest.find_node_near(pos, 1, {"air", "group:illumination_light"})
+	return core.find_node_near(pos, 1, {"air", "group:illumination_light"})
 end
 
 local function update_illumination(player, dtime)
@@ -64,7 +64,7 @@ local function update_illumination(player, dtime)
 	local node = get_light_node(player)
 	-- Check if illumination needs updating
 	if old_pos and player_pos then
-		if node == minetest.get_node(old_pos).name and vector.equals(pos, player_pos) then
+		if node == core.get_node(old_pos).name and vector.equals(pos, player_pos) then
 			return  -- Already has illumination
 		end
 	end
@@ -73,8 +73,8 @@ local function update_illumination(player, dtime)
 	if node then
 		local new_pos = find_light_pos(pos)
 		if new_pos then
-			minetest.set_node(new_pos, {name = node})
-			minetest.get_node_timer(new_pos):stop()
+			core.set_node(new_pos, {name = node})
+			core.get_node_timer(new_pos):stop()
 			if old_pos and not vector.equals(old_pos, new_pos) then
 				remove_light(old_pos)
 			end
@@ -87,20 +87,20 @@ local function update_illumination(player, dtime)
 	player_lights[name].pos = nil
 end
 
-minetest.register_globalstep(function(dtime)
-	for _, player in pairs(minetest.get_connected_players()) do
+core.register_globalstep(function(dtime)
+	for _, player in pairs(core.get_connected_players()) do
 		update_illumination(player, dtime)
 	end
 end)
 
-minetest.register_on_joinplayer(function(player)
+core.register_on_joinplayer(function(player)
 	local name = player:get_player_name()
 	if not player_lights[name] then
 		player_lights[name] = {}
 	end
 end)
 
-minetest.register_on_leaveplayer(function(player)
+core.register_on_leaveplayer(function(player)
 	local name = player:get_player_name()
 	if player_lights[name] then
 		remove_light(player_lights[name].pos)
@@ -109,14 +109,14 @@ minetest.register_on_leaveplayer(function(player)
 end)
 
 -- Support for luminescent armor
-if minetest.get_modpath("3d_armor") then
+if core.get_modpath("3d_armor") then
 	armor:register_on_update(function(player)
 		local name, inv = armor:get_valid_player(player)
 		if name then
 			local light = 0
 			for i=1, inv:get_size("armor") do
 				local item = inv:get_stack("armor", i):get_name()
-				local def = minetest.registered_items[item]
+				local def = core.registered_items[item]
 				if def and def.light_source and def.light_source > light then
 					light = def.light_source
 				end
@@ -132,12 +132,12 @@ if minetest.get_modpath("3d_armor") then
 end
 
 local function light_on_timer (pos)
-	minetest.set_node(pos, {name = "air"})
+	core.set_node(pos, {name = "air"})
 end
 
 -- Light node for every light level
 for n = 1, 14 do
-	minetest.register_node("illumination:light_"..n, {
+	core.register_node("illumination:light_"..n, {
 		drawtype = "airlike",
 		paramtype = "light",
 		light_source = n,
@@ -156,18 +156,18 @@ for n = 1, 14 do
 end
 
 -- Cleanup for leftover and player-placed illumination lights
-minetest.register_lbm({
+core.register_lbm({
 	label = "Illumination light cleanup",
 	name = "illumination:light_cleanup",
 	nodenames = {"group:illumination_light"},
 	run_at_every_load = true,
 	action = function(pos)
-		minetest.set_node(pos, {name = "air"})
+		core.set_node(pos, {name = "air"})
 	end,
 })
 
 -- Aliases for old illumination lights
-minetest.register_alias("illumination:light_faint", "illumination:light_4")
-minetest.register_alias("illumination:light_dim", "illumination:light_8")
-minetest.register_alias("illumination:light_mid", "illumination:light_12")
-minetest.register_alias("illumination:light_full", "illumination:light_14")
+core.register_alias("illumination:light_faint", "illumination:light_4")
+core.register_alias("illumination:light_dim", "illumination:light_8")
+core.register_alias("illumination:light_mid", "illumination:light_12")
+core.register_alias("illumination:light_full", "illumination:light_14")
